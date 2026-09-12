@@ -160,13 +160,14 @@
   .field-row{margin-bottom:16px;}
   .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
   .field-grid.three{grid-template-columns:1fr 1fr 1fr;}
+  .field-grid.four{grid-template-columns:1fr 1fr 1fr 1fr;}
   textarea{resize:vertical; min-height:64px;}
 
   /* modal */
   .modal-overlay{position:fixed; inset:0; background:rgba(15,20,18,.5); display:flex; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:60; overflow-y:auto;}
   .modal-overlay.hidden{display:none;}
   .modal{background:var(--surface); border-radius:14px; width:100%; max-width:640px; box-shadow:0 20px 60px rgba(0,0,0,.25); animation:pop .15s ease;}
-  .modal.wide{max-width:820px;}
+  .modal.wide{max-width:860px;}
   @keyframes pop{from{opacity:0; transform:translateY(6px) scale(.99);} to{opacity:1; transform:none;}}
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid var(--line);}
   .modal-head h2{margin:0; font-size:19px; font-weight:600;}
@@ -223,7 +224,7 @@
     .tb-titles{display:flex; flex-direction:column; line-height:1.25;}
     .topbar .tb-title{font-family:'Fraunces',serif; font-weight:600; font-size:14.5px;}
     .topbar .tb-sub{font-size:11px; color:#C7D2CC;}
-    .field-grid, .field-grid.three{grid-template-columns:1fr;}
+    .field-grid, .field-grid.three, .field-grid.four{grid-template-columns:1fr;}
     .items-head{display:none;}
     .item-row{grid-template-columns:1fr; gap:6px; background:var(--surface-soft); padding:10px; border-radius:8px;}
     .item-row .rm-btn{justify-self:end;}
@@ -444,13 +445,14 @@ function renderDashboard(){
     <div class="panel-head"><h3>Documentos recientes</h3></div>
     <div class="table-scroll">
     <table>
-      <thead><tr><th>Tipo</th><th>Número</th><th>Cliente</th><th>Fecha</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Tipo</th><th>Número</th><th>PO Number</th><th>Cliente</th><th>Fecha</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
       <tbody>
         ${recientes.length ? recientes.map(d=>{
           const c = getClient(d.clientId);
           return `<tr>
             <td>${d.type==='factura'?'Factura':'Cotización'}</td>
             <td>${esc(d.number)}</td>
+            <td>${esc(d.poNumber)||'—'}</td>
             <td>${esc(c?c.name:'—')}</td>
             <td>${formatDate(d.date)}</td>
             <td class="num">${formatMoney(docTotals(d).total)}</td>
@@ -459,7 +461,7 @@ function renderDashboard(){
               <button class="btn btn-ghost btn-sm" onclick="openPreview('${d.id}')">Ver</button>
             </div></td>
           </tr>`;
-        }).join('') : `<tr class="empty-row"><td colspan="7">Aún no tienes documentos. Crea tu primera cotización o factura.</td></tr>`}
+        }).join('') : `<tr class="empty-row"><td colspan="8">Aún no tienes documentos. Crea tu primera cotización o factura.</td></tr>`}
       </tbody>
     </table>
     </div>
@@ -534,11 +536,12 @@ function renderClientDetail(clientId){
     <div class="panel-head"><h3>Historial de documentos</h3></div>
     <div class="table-scroll">
     <table>
-      <thead><tr><th>Tipo</th><th>Número</th><th>Fecha</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Tipo</th><th>Número</th><th>PO Number</th><th>Fecha</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
       <tbody>
         ${docs.length ? docs.map(d=>`<tr>
             <td>${d.type==='factura'?'Factura':'Cotización'}</td>
             <td>${esc(d.number)}</td>
+            <td>${esc(d.poNumber)||'—'}</td>
             <td>${formatDate(d.date)}</td>
             <td class="num">${formatMoney(docTotals(d).total)}</td>
             <td><span class="badge ${statusBadgeClass(d)}">${statusLabel(d)}</span></td>
@@ -546,7 +549,7 @@ function renderClientDetail(clientId){
               <button class="btn btn-ghost btn-sm" onclick="openPreview('${d.id}')">Ver</button>
               <button class="btn btn-ghost btn-sm" onclick="openDocModal('${d.type}','${d.id}')">Editar</button>
             </div></td>
-          </tr>`).join('') : `<tr class="empty-row"><td colspan="6">Este cliente aún no tiene documentos.</td></tr>`}
+          </tr>`).join('') : `<tr class="empty-row"><td colspan="7">Este cliente aún no tiene documentos.</td></tr>`}
       </tbody>
     </table>
     </div>
@@ -579,13 +582,14 @@ function renderDocList(type){
     </div>
     <div class="table-scroll">
     <table>
-      <thead><tr><th>Número</th><th>Cliente</th><th>Fecha</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Número</th><th>PO Number</th><th>Cliente</th><th>Fecha</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
       <tbody>
         ${docs.length ? docs.map(d=>{
           const c = getClient(d.clientId);
           const opts = statusOptions(d.type).map(s=>`<option value="${s}" ${s===d.status?'selected':''}>${statusLabel({status:s})}</option>`).join('');
           return `<tr>
             <td>${esc(d.number)}</td>
+            <td>${esc(d.poNumber)||'—'}</td>
             <td>${c? `<button class="clientlink" onclick="switchView('clients','${c.id}')">${esc(c.name)}</button>`:'—'}</td>
             <td>${formatDate(d.date)}</td>
             <td class="num">${formatMoney(docTotals(d).total)}</td>
@@ -597,7 +601,7 @@ function renderDocList(type){
               <button class="btn btn-danger btn-sm" onclick="deleteDoc('${d.id}')">Eliminar</button>
             </div></td>
           </tr>`;
-        }).join('') : `<tr class="empty-row"><td colspan="6">No hay ${type==='factura'?'facturas':'cotizaciones'} todavía.</td></tr>`}
+        }).join('') : `<tr class="empty-row"><td colspan="7">No hay ${type==='factura'?'facturas':'cotizaciones'} todavía.</td></tr>`}
       </tbody>
     </table>
     </div>
@@ -778,6 +782,7 @@ function openDocModal(type, id, presetClientId){
   const editing = !!id;
   const d = editing ? state.documents.find(x=>x.id===id) : {
     type, clientId: presetClientId || (state.clients[0]?state.clients[0].id:''),
+    poNumber: '',
     date: todayStr(), dueDate: type==='cotizacion' ? addDays(todayStr(),15) : addDays(todayStr(),30),
     status:'pendiente', taxRate: state.business.taxRate, notes:'', items:[{desc:'',qty:1,price:0}]
   };
@@ -789,10 +794,14 @@ function openDocModal(type, id, presetClientId){
   openModal(`
     <div class="modal-head"><h2>${editing? 'Editar '+label : 'Nueva '+label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <div class="field-grid three">
+      <div class="field-grid four">
         <div class="field-row">
           <label>Cliente *</label>
           <select class="field" id="docClient">${clientOptions}</select>
+        </div>
+        <div class="field-row">
+          <label>Número de PO (Orden de Compra)</label>
+          <input type="text" id="docPoNumber" value="${esc(d.poNumber||'')}" placeholder="ej. PO-98765">
         </div>
         <div class="field-row"><label>Fecha</label><input type="date" id="docDate" value="${d.date}"></div>
         <div class="field-row"><label>${type==='factura'?'Vence':'Válida hasta'}</label><input type="date" id="docDue" value="${d.dueDate||''}"></div>
@@ -873,8 +882,10 @@ function saveDoc(type, id){
   });
   if(!items.length){ alert('Agrega al menos un concepto con descripción.'); return; }
 
+  const poNumber = document.getElementById('docPoNumber') ? document.getElementById('docPoNumber').value.trim() : '';
+
   const data = {
-    type, clientId,
+    type, clientId, poNumber,
     date: document.getElementById('docDate').value || todayStr(),
     dueDate: document.getElementById('docDue').value || '',
     taxRate: parseFloat(document.getElementById('docTaxRate').value)||0,
@@ -915,7 +926,7 @@ function convertToInvoice(cotId){
   if(!confirm('Se creará una nueva factura a partir de esta cotización. ¿Continuar?')) return;
   const factura = {
     id: uid('doc'), type:'factura', number: nextNumber('factura'),
-    clientId: cot.clientId, date: todayStr(), dueDate: addDays(todayStr(),30),
+    clientId: cot.clientId, poNumber: cot.poNumber || '', date: todayStr(), dueDate: addDays(todayStr(),30),
     taxRate: cot.taxRate, status:'pendiente',
     notes: (cot.notes?cot.notes+' — ':'')+'Generada a partir de '+cot.number,
     items: cot.items.map(i=>({...i}))
@@ -952,6 +963,7 @@ function openPreview(id){
             <div class="doctype">${label}</div>
             <div class="docmeta">
               No. ${esc(d.number)}<br>
+              ${d.poNumber ? '<b>PO:</b> '+esc(d.poNumber)+'<br>' : ''}
               Fecha: ${formatDate(d.date)}<br>
               ${d.dueDate? (d.type==='factura'?'Vence: ':'Válida hasta: ')+formatDate(d.dueDate)+'<br>':''}
               <span class="badge ${statusBadgeClass(d)}">${statusLabel(d)}</span>
@@ -1022,11 +1034,13 @@ function downloadPDF(id){
   pdf.setFont('helvetica','bold'); pdf.setFontSize(14); pdf.setTextColor(176,139,73);
   pdf.text(label, pageW-marginX, 20, {align:'right'});
   pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor(26,33,29);
-  pdf.text('No. '+d.number, pageW-marginX, 26, {align:'right'});
-  pdf.text('Fecha: '+formatDate(d.date), pageW-marginX, 31, {align:'right'});
-  if(d.dueDate) pdf.text((d.type==='factura'?'Vence: ':'Válida hasta: ')+formatDate(d.dueDate), pageW-marginX, 36, {align:'right'});
+  let metaY = 26;
+  pdf.text('No. '+d.number, pageW-marginX, metaY, {align:'right'}); metaY += 5;
+  if(d.poNumber){ pdf.text('PO: '+d.poNumber, pageW-marginX, metaY, {align:'right'}); metaY += 5; }
+  pdf.text('Fecha: '+formatDate(d.date), pageW-marginX, metaY, {align:'right'}); metaY += 5;
+  if(d.dueDate) pdf.text((d.type==='factura'?'Vence: ':'Válida hasta: ')+formatDate(d.dueDate), pageW-marginX, metaY, {align:'right'});
 
-  y = Math.max(y, 38) + 5;
+  y = Math.max(y, metaY) + 5;
   pdf.setDrawColor(222,221,208); pdf.line(marginX, y, pageW-marginX, y); y+=8;
 
   pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.setTextColor(26,33,29);
@@ -1109,7 +1123,7 @@ function exportClientExcel(clientId){
   if(c.rfc) rows.push(['RFC:', c.rfc]);
   rows.push(['Generado:', formatDate(todayStr())]);
   rows.push([]);
-  rows.push(['Tipo','Número','Fecha','Vence / Válida hasta','Estado','Subtotal','Impuesto','Total','Notas']);
+  rows.push(['Tipo','Número','PO Number','Fecha','Vence / Válida hasta','Estado','Subtotal','Impuesto','Total','Notas']);
 
   let totalCot = 0, totalFact = 0;
   docs.forEach(d=>{
@@ -1118,17 +1132,17 @@ function exportClientExcel(clientId){
     if(d.type==='factura' && d.status!=='cancelada') totalFact += t.total;
     rows.push([
       d.type==='factura' ? 'Factura' : 'Cotización',
-      d.number, formatDate(d.date), d.dueDate?formatDate(d.dueDate):'',
+      d.number, d.poNumber || '', formatDate(d.date), d.dueDate?formatDate(d.dueDate):'',
       statusLabel(d), Number(t.subtotal.toFixed(2)), Number(t.tax.toFixed(2)), Number(t.total.toFixed(2)),
       d.notes || ''
     ]);
   });
   rows.push([]);
-  rows.push(['','','','','Total cotizado','','', Number(totalCot.toFixed(2)), '']);
-  rows.push(['','','','','Total facturado (sin canceladas)','','', Number(totalFact.toFixed(2)), '']);
+  rows.push(['','','','','','Total cotizado','','', Number(totalCot.toFixed(2)), '']);
+  rows.push(['','','','','','Total facturado (sin canceladas)','','', Number(totalFact.toFixed(2)), '']);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:12},{wch:12},{wch:12},{wch:16},{wch:14},{wch:12},{wch:12},{wch:12},{wch:34}];
+  ws['!cols'] = [{wch:12},{wch:12},{wch:14},{wch:12},{wch:16},{wch:14},{wch:12},{wch:12},{wch:12},{wch:34}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
   const safeName = c.name.replace(/[^a-z0-9]+/gi,'_');
