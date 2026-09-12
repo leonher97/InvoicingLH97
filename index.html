@@ -449,10 +449,11 @@ function renderDashboard(){
       <tbody>
         ${recientes.length ? recientes.map(d=>{
           const c = getClient(d.clientId);
+          const poVal = d.type === 'factura' ? (esc(d.poNumber) || '—') : '—';
           return `<tr>
             <td>${d.type==='factura'?'Factura':'Cotización'}</td>
             <td>${esc(d.number)}</td>
-            <td>${esc(d.poNumber)||'—'}</td>
+            <td>${poVal}</td>
             <td>${esc(c?c.name:'—')}</td>
             <td>${formatDate(d.date)}</td>
             <td class="num">${formatMoney(docTotals(d).total)}</td>
@@ -541,7 +542,7 @@ function renderClientDetail(clientId){
         ${docs.length ? docs.map(d=>`<tr>
             <td>${d.type==='factura'?'Factura':'Cotización'}</td>
             <td>${esc(d.number)}</td>
-            <td>${esc(d.poNumber)||'—'}</td>
+            <td>${d.type === 'factura' ? (esc(d.poNumber)||'—') : '—'}</td>
             <td>${formatDate(d.date)}</td>
             <td class="num">${formatMoney(docTotals(d).total)}</td>
             <td><span class="badge ${statusBadgeClass(d)}">${statusLabel(d)}</span></td>
@@ -567,10 +568,12 @@ function renderDocList(type){
   const clientOptions = [...state.clients].sort((a,b)=>a.name.localeCompare(b.name))
     .map(c=>`<option value="${c.id}" ${c.id===filterVal?'selected':''}>${esc(c.name)}</option>`).join('');
 
+  const isFactura = type === 'factura';
+
   return `
   <div class="view-head">
-    <div><h1>${title}</h1><p>${type==='factura' ? 'Documentos fiscales generados a tus clientes' : 'Propuestas enviadas a tus clientes'}</p></div>
-    <div class="head-actions"><button class="btn ${type==='factura'?'btn-gold':'btn-primary'}" onclick="openDocModal('${type}')">+ Nueva ${type==='factura'?'factura':'cotización'}</button></div>
+    <div><h1>${title}</h1><p>${isFactura ? 'Documentos fiscales generados a tus clientes' : 'Propuestas enviadas a tus clientes'}</p></div>
+    <div class="head-actions"><button class="btn ${isFactura?'btn-gold':'btn-primary'}" onclick="openDocModal('${type}')">+ Nueva ${isFactura?'factura':'cotización'}</button></div>
   </div>
   <div class="panel">
     <div class="panel-head">
@@ -582,14 +585,24 @@ function renderDocList(type){
     </div>
     <div class="table-scroll">
     <table>
-      <thead><tr><th>Número</th><th>PO Number</th><th>Cliente</th><th>Fecha</th><th class="num">Total</th><th>Estado</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th>Número</th>
+          ${isFactura ? '<th>PO Number</th>' : ''}
+          <th>Cliente</th>
+          <th>Fecha</th>
+          <th class="num">Total</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
         ${docs.length ? docs.map(d=>{
           const c = getClient(d.clientId);
           const opts = statusOptions(d.type).map(s=>`<option value="${s}" ${s===d.status?'selected':''}>${statusLabel({status:s})}</option>`).join('');
           return `<tr>
             <td>${esc(d.number)}</td>
-            <td>${esc(d.poNumber)||'—'}</td>
+            ${isFactura ? `<td>${esc(d.poNumber)||'—'}</td>` : ''}
             <td>${c? `<button class="clientlink" onclick="switchView('clients','${c.id}')">${esc(c.name)}</button>`:'—'}</td>
             <td>${formatDate(d.date)}</td>
             <td class="num">${formatMoney(docTotals(d).total)}</td>
@@ -601,7 +614,7 @@ function renderDocList(type){
               <button class="btn btn-danger btn-sm" onclick="deleteDoc('${d.id}')">Eliminar</button>
             </div></td>
           </tr>`;
-        }).join('') : `<tr class="empty-row"><td colspan="7">No hay ${type==='factura'?'facturas':'cotizaciones'} todavía.</td></tr>`}
+        }).join('') : `<tr class="empty-row"><td colspan="${isFactura?7:6}">No hay ${isFactura?'facturas':'cotizaciones'} todavía.</td></tr>`}
       </tbody>
     </table>
     </div>
@@ -786,26 +799,55 @@ function openDocModal(type, id, presetClientId){
     date: todayStr(), dueDate: type==='cotizacion' ? addDays(todayStr(),15) : addDays(todayStr(),30),
     status:'pendiente', taxRate: state.business.taxRate, notes:'', items:[{desc:'',qty:1,price:0}]
   };
-  const label = type==='factura' ? 'factura' : 'cotización';
+  const isFactura = type === 'factura';
+  const label = isFactura ? 'factura' : 'cotización';
   const clientOptions = state.clients.length
     ? [...state.clients].sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`<option value="${c.id}" ${c.id===d.clientId?'selected':''}>${esc(c.name)}</option>`).join('')
     : `<option value="">— agrega un cliente primero —</option>`;
 
+  // Estructura adaptada perfectamente para simetría
+  const headerFieldsHtml = isFactura ? `
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Cliente *</label>
+        <select class="field" id="docClient">${clientOptions}</select>
+      </div>
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Número de PO (Orden de Compra)</label>
+        <input type="text" id="docPoNumber" value="${esc(d.poNumber||'')}" placeholder="ej. PO-98765">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:16px;">
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Fecha</label>
+        <input type="date" id="docDate" value="${d.date}">
+      </div>
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Vencimiento</label>
+        <input type="date" id="docDue" value="${d.dueDate||''}">
+      </div>
+    </div>
+  ` : `
+    <div class="field-grid three" style="margin-bottom:16px;">
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Cliente *</label>
+        <select class="field" id="docClient">${clientOptions}</select>
+      </div>
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Fecha</label>
+        <input type="date" id="docDate" value="${d.date}">
+      </div>
+      <div class="field-row" style="margin-bottom:0;">
+        <label>Válida hasta</label>
+        <input type="date" id="docDue" value="${d.dueDate||''}">
+      </div>
+    </div>
+  `;
+
   openModal(`
     <div class="modal-head"><h2>${editing? 'Editar '+label : 'Nueva '+label}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div class="modal-body">
-      <div class="field-grid four">
-        <div class="field-row">
-          <label>Cliente *</label>
-          <select class="field" id="docClient">${clientOptions}</select>
-        </div>
-        <div class="field-row">
-          <label>Número de PO (Orden de Compra)</label>
-          <input type="text" id="docPoNumber" value="${esc(d.poNumber||'')}" placeholder="ej. PO-98765">
-        </div>
-        <div class="field-row"><label>Fecha</label><input type="date" id="docDate" value="${d.date}"></div>
-        <div class="field-row"><label>${type==='factura'?'Vence':'Válida hasta'}</label><input type="date" id="docDue" value="${d.dueDate||''}"></div>
-      </div>
+      ${headerFieldsHtml}
 
       <label style="margin-top:4px;">Conceptos</label>
       <div class="items-head"><span>Descripción</span><span>Cant.</span><span>Precio</span><span>Importe</span><span></span></div>
@@ -828,7 +870,7 @@ function openDocModal(type, id, presetClientId){
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn ${type==='factura'?'btn-gold':'btn-primary'}" onclick="saveDoc('${type}', ${editing?`'${id}'`:'null'})">Guardar ${label}</button>
+      <button class="btn ${isFactura?'btn-gold':'btn-primary'}" onclick="saveDoc('${type}', ${editing?`'${id}'`:'null'})">Guardar ${label}</button>
     </div>
   `, true);
   updateItemTotals();
@@ -882,7 +924,9 @@ function saveDoc(type, id){
   });
   if(!items.length){ alert('Agrega al menos un concepto con descripción.'); return; }
 
-  const poNumber = document.getElementById('docPoNumber') ? document.getElementById('docPoNumber').value.trim() : '';
+  const poNumber = (type === 'factura' && document.getElementById('docPoNumber')) 
+    ? document.getElementById('docPoNumber').value.trim() 
+    : '';
 
   const data = {
     type, clientId, poNumber,
@@ -926,7 +970,7 @@ function convertToInvoice(cotId){
   if(!confirm('Se creará una nueva factura a partir de esta cotización. ¿Continuar?')) return;
   const factura = {
     id: uid('doc'), type:'factura', number: nextNumber('factura'),
-    clientId: cot.clientId, poNumber: cot.poNumber || '', date: todayStr(), dueDate: addDays(todayStr(),30),
+    clientId: cot.clientId, poNumber: '', date: todayStr(), dueDate: addDays(todayStr(),30),
     taxRate: cot.taxRate, status:'pendiente',
     notes: (cot.notes?cot.notes+' — ':'')+'Generada a partir de '+cot.number,
     items: cot.items.map(i=>({...i}))
@@ -943,7 +987,8 @@ function openPreview(id){
   const c = getClient(d.clientId) || {name:'—'};
   const b = state.business;
   const t = docTotals(d);
-  const label = d.type==='factura' ? 'FACTURA' : 'COTIZACIÓN';
+  const isFactura = d.type==='factura';
+  const label = isFactura ? 'FACTURA' : 'COTIZACIÓN';
 
   openModal(`
     <div class="modal-head"><h2>${label} ${esc(d.number)}</h2><button class="modal-close" onclick="closeModal()">✕</button></div>
@@ -963,9 +1008,9 @@ function openPreview(id){
             <div class="doctype">${label}</div>
             <div class="docmeta">
               No. ${esc(d.number)}<br>
-              ${d.poNumber ? '<b>PO:</b> '+esc(d.poNumber)+'<br>' : ''}
+              ${isFactura && d.poNumber ? '<b>PO:</b> '+esc(d.poNumber)+'<br>' : ''}
               Fecha: ${formatDate(d.date)}<br>
-              ${d.dueDate? (d.type==='factura'?'Vence: ':'Válida hasta: ')+formatDate(d.dueDate)+'<br>':''}
+              ${d.dueDate? (isFactura?'Vence: ':'Válida hasta: ')+formatDate(d.dueDate)+'<br>':''}
               <span class="badge ${statusBadgeClass(d)}">${statusLabel(d)}</span>
             </div>
           </div>
@@ -1030,15 +1075,16 @@ function downloadPDF(id){
   const line2 = [b.phone, b.email, b.rfc?('RFC: '+b.rfc):''].filter(Boolean).join('   |   ');
   if(line2){ pdf.text(line2, textX, y); y+=4.5; }
 
-  const label = d.type==='factura' ? 'FACTURA' : 'COTIZACIÓN';
+  const isFactura = d.type === 'factura';
+  const label = isFactura ? 'FACTURA' : 'COTIZACIÓN';
   pdf.setFont('helvetica','bold'); pdf.setFontSize(14); pdf.setTextColor(176,139,73);
   pdf.text(label, pageW-marginX, 20, {align:'right'});
   pdf.setFont('helvetica','normal'); pdf.setFontSize(10); pdf.setTextColor(26,33,29);
   let metaY = 26;
   pdf.text('No. '+d.number, pageW-marginX, metaY, {align:'right'}); metaY += 5;
-  if(d.poNumber){ pdf.text('PO: '+d.poNumber, pageW-marginX, metaY, {align:'right'}); metaY += 5; }
+  if(isFactura && d.poNumber){ pdf.text('PO: '+d.poNumber, pageW-marginX, metaY, {align:'right'}); metaY += 5; }
   pdf.text('Fecha: '+formatDate(d.date), pageW-marginX, metaY, {align:'right'}); metaY += 5;
-  if(d.dueDate) pdf.text((d.type==='factura'?'Vence: ':'Válida hasta: ')+formatDate(d.dueDate), pageW-marginX, metaY, {align:'right'});
+  if(d.dueDate) pdf.text((isFactura?'Vence: ':'Válida hasta: ')+formatDate(d.dueDate), pageW-marginX, metaY, {align:'right'});
 
   y = Math.max(y, metaY) + 5;
   pdf.setDrawColor(222,221,208); pdf.line(marginX, y, pageW-marginX, y); y+=8;
@@ -1132,7 +1178,7 @@ function exportClientExcel(clientId){
     if(d.type==='factura' && d.status!=='cancelada') totalFact += t.total;
     rows.push([
       d.type==='factura' ? 'Factura' : 'Cotización',
-      d.number, d.poNumber || '', formatDate(d.date), d.dueDate?formatDate(d.dueDate):'',
+      d.number, d.type==='factura' ? (d.poNumber || '') : '', formatDate(d.date), d.dueDate?formatDate(d.dueDate):'',
       statusLabel(d), Number(t.subtotal.toFixed(2)), Number(t.tax.toFixed(2)), Number(t.total.toFixed(2)),
       d.notes || ''
     ]);
